@@ -1,9 +1,15 @@
 package com.ruoyi.system.service.impl;
 
+import java.io.Serializable;
 import java.util.Date;
+import java.util.Deque;
 import java.util.List;
+import com.ruoyi.common.utils.spring.SpringUtils;
+import org.apache.shiro.cache.Cache;
+import org.apache.shiro.cache.ehcache.EhCacheManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import com.ruoyi.common.constant.ShiroConstants;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.domain.SysUserOnline;
@@ -99,6 +105,25 @@ public class SysUserOnlineServiceImpl implements ISysUserOnlineService
     public void forceLogout(String sessionId)
     {
         userOnlineDao.deleteOnlineById(sessionId);
+    }
+
+    /**
+     * 清理用户缓存
+     * 
+     * @param loginName 登录名称
+     * @param sessionId 会话ID
+     */
+    @Override
+    public void removeUserCache(String loginName, String sessionId)
+    {
+        EhCacheManager ehCacheManager = SpringUtils.getBean(EhCacheManager.class);
+        Cache<String, Deque<Serializable>> cache = ehCacheManager.getCache(ShiroConstants.SYS_USERCACHE);
+        Deque<Serializable> deque = cache.get(loginName);
+        if (StringUtils.isEmpty(deque) || deque.size() == 0)
+        {
+            return;
+        }
+        deque.remove(sessionId);
     }
 
     /**

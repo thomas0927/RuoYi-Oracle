@@ -12,13 +12,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import com.ruoyi.common.annotation.Log;
-import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
-import com.ruoyi.framework.util.ShiroUtils;
 import com.ruoyi.system.domain.SysConfig;
 import com.ruoyi.system.service.ISysConfigService;
 
@@ -85,17 +83,18 @@ public class SysConfigController extends BaseController
     @ResponseBody
     public AjaxResult addSave(@Validated SysConfig config)
     {
-        if (UserConstants.CONFIG_KEY_NOT_UNIQUE.equals(configService.checkConfigKeyUnique(config)))
+        if (!configService.checkConfigKeyUnique(config))
         {
             return error("新增参数'" + config.getConfigName() + "'失败，参数键名已存在");
         }
-        config.setCreateBy(ShiroUtils.getLoginName());
+        config.setCreateBy(getLoginName());
         return toAjax(configService.insertConfig(config));
     }
 
     /**
      * 修改参数配置
      */
+    @RequiresPermissions("system:config:edit")
     @GetMapping("/edit/{configId}")
     public String edit(@PathVariable("configId") Long configId, ModelMap mmap)
     {
@@ -112,11 +111,11 @@ public class SysConfigController extends BaseController
     @ResponseBody
     public AjaxResult editSave(@Validated SysConfig config)
     {
-        if (UserConstants.CONFIG_KEY_NOT_UNIQUE.equals(configService.checkConfigKeyUnique(config)))
+        if (!configService.checkConfigKeyUnique(config))
         {
             return error("修改参数'" + config.getConfigName() + "'失败，参数键名已存在");
         }
-        config.setUpdateBy(ShiroUtils.getLoginName());
+        config.setUpdateBy(getLoginName());
         return toAjax(configService.updateConfig(config));
     }
 
@@ -129,7 +128,21 @@ public class SysConfigController extends BaseController
     @ResponseBody
     public AjaxResult remove(String ids)
     {
-        return toAjax(configService.deleteConfigByIds(ids));
+        configService.deleteConfigByIds(ids);
+        return success();
+    }
+
+    /**
+     * 刷新参数缓存
+     */
+    @RequiresPermissions("system:config:remove")
+    @Log(title = "参数管理", businessType = BusinessType.CLEAN)
+    @GetMapping("/refreshCache")
+    @ResponseBody
+    public AjaxResult refreshCache()
+    {
+        configService.resetConfigCache();
+        return success();
     }
 
     /**
@@ -137,7 +150,7 @@ public class SysConfigController extends BaseController
      */
     @PostMapping("/checkConfigKeyUnique")
     @ResponseBody
-    public String checkConfigKeyUnique(SysConfig config)
+    public boolean checkConfigKeyUnique(SysConfig config)
     {
         return configService.checkConfigKeyUnique(config);
     }

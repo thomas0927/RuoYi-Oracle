@@ -12,15 +12,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import com.ruoyi.common.annotation.Log;
-import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.Ztree;
+import com.ruoyi.common.core.domain.entity.SysDictType;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
-import com.ruoyi.framework.util.ShiroUtils;
-import com.ruoyi.system.domain.SysDictType;
 import com.ruoyi.system.service.ISysDictTypeService;
 
 /**
@@ -84,17 +82,18 @@ public class SysDictTypeController extends BaseController
     @ResponseBody
     public AjaxResult addSave(@Validated SysDictType dict)
     {
-        if (UserConstants.DICT_TYPE_NOT_UNIQUE.equals(dictTypeService.checkDictTypeUnique(dict)))
+        if (!dictTypeService.checkDictTypeUnique(dict))
         {
             return error("新增字典'" + dict.getDictName() + "'失败，字典类型已存在");
         }
-        dict.setCreateBy(ShiroUtils.getLoginName());
+        dict.setCreateBy(getLoginName());
         return toAjax(dictTypeService.insertDictType(dict));
     }
 
     /**
      * 修改字典类型
      */
+    @RequiresPermissions("system:dict:edit")
     @GetMapping("/edit/{dictId}")
     public String edit(@PathVariable("dictId") Long dictId, ModelMap mmap)
     {
@@ -111,11 +110,11 @@ public class SysDictTypeController extends BaseController
     @ResponseBody
     public AjaxResult editSave(@Validated SysDictType dict)
     {
-        if (UserConstants.DICT_TYPE_NOT_UNIQUE.equals(dictTypeService.checkDictTypeUnique(dict)))
+        if (!dictTypeService.checkDictTypeUnique(dict))
         {
             return error("修改字典'" + dict.getDictName() + "'失败，字典类型已存在");
         }
-        dict.setUpdateBy(ShiroUtils.getLoginName());
+        dict.setUpdateBy(getLoginName());
         return toAjax(dictTypeService.updateDictType(dict));
     }
 
@@ -125,14 +124,21 @@ public class SysDictTypeController extends BaseController
     @ResponseBody
     public AjaxResult remove(String ids)
     {
-        try
-        {
-            return toAjax(dictTypeService.deleteDictTypeByIds(ids));
-        }
-        catch (Exception e)
-        {
-            return error(e.getMessage());
-        }
+        dictTypeService.deleteDictTypeByIds(ids);
+        return success();
+    }
+
+    /**
+     * 刷新字典缓存
+     */
+    @RequiresPermissions("system:dict:remove")
+    @Log(title = "字典类型", businessType = BusinessType.CLEAN)
+    @GetMapping("/refreshCache")
+    @ResponseBody
+    public AjaxResult refreshCache()
+    {
+        dictTypeService.resetDictCache();
+        return success();
     }
 
     /**
@@ -152,7 +158,7 @@ public class SysDictTypeController extends BaseController
      */
     @PostMapping("/checkDictTypeUnique")
     @ResponseBody
-    public String checkDictTypeUnique(SysDictType dictType)
+    public boolean checkDictTypeUnique(SysDictType dictType)
     {
         return dictTypeService.checkDictTypeUnique(dictType);
     }

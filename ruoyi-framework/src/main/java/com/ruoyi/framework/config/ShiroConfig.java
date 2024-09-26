@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import javax.servlet.Filter;
 import org.apache.commons.io.IOUtils;
@@ -14,18 +15,22 @@ import org.apache.shiro.io.ResourceUtils;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor;
 import org.apache.shiro.spring.web.ShiroFilterFactoryBean;
-import org.apache.shiro.web.mgt.CookieRememberMeManager;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
 import org.apache.shiro.web.servlet.SimpleCookie;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.security.CipherUtils;
 import com.ruoyi.common.utils.spring.SpringUtils;
+import com.ruoyi.framework.config.properties.PermitAllUrlProperties;
 import com.ruoyi.framework.shiro.realm.UserRealm;
+import com.ruoyi.framework.shiro.rememberMe.CustomCookieRememberMeManager;
 import com.ruoyi.framework.shiro.session.OnlineSessionDAO;
 import com.ruoyi.framework.shiro.session.OnlineSessionFactory;
+import com.ruoyi.framework.shiro.web.CustomShiroFilterFactoryBean;
 import com.ruoyi.framework.shiro.web.filter.LogoutFilter;
 import com.ruoyi.framework.shiro.web.filter.captcha.CaptchaValidateFilter;
 import com.ruoyi.framework.shiro.web.filter.kickout.KickoutSessionFilter;
@@ -43,55 +48,89 @@ import at.pollux.thymeleaf.shiro.dialect.ShiroDialect;
 @Configuration
 public class ShiroConfig
 {
-    public static final String PREMISSION_STRING = "perms[\"{0}\"]";
-
-    // Session超时时间，单位为毫秒（默认30分钟）
+    /**
+     * Session超时时间，单位为毫秒（默认30分钟）
+     */
     @Value("${shiro.session.expireTime}")
     private int expireTime;
 
-    // 相隔多久检查一次session的有效性，单位毫秒，默认就是10分钟
+    /**
+     * 相隔多久检查一次session的有效性，单位毫秒，默认就是10分钟
+     */
     @Value("${shiro.session.validationInterval}")
     private int validationInterval;
 
-    // 同一个用户最大会话数
+    /**
+     * 同一个用户最大会话数
+     */
     @Value("${shiro.session.maxSession}")
     private int maxSession;
 
-    // 踢出之前登录的/之后登录的用户，默认踢出之前登录的用户
+    /**
+     * 踢出之前登录的/之后登录的用户，默认踢出之前登录的用户
+     */
     @Value("${shiro.session.kickoutAfter}")
     private boolean kickoutAfter;
 
-    // 验证码开关
+    /**
+     * 验证码开关
+     */
     @Value("${shiro.user.captchaEnabled}")
     private boolean captchaEnabled;
 
-    // 验证码类型
+    /**
+     * 验证码类型
+     */
     @Value("${shiro.user.captchaType}")
     private String captchaType;
 
-    // 设置Cookie的域名
+    /**
+     * 设置Cookie的域名
+     */
     @Value("${shiro.cookie.domain}")
     private String domain;
 
-    // 设置cookie的有效访问路径
+    /**
+     * 设置cookie的有效访问路径
+     */
     @Value("${shiro.cookie.path}")
     private String path;
 
-    // 设置HttpOnly属性
+    /**
+     * 设置HttpOnly属性
+     */
     @Value("${shiro.cookie.httpOnly}")
     private boolean httpOnly;
 
-    // 设置Cookie的过期时间，秒为单位
+    /**
+     * 设置Cookie的过期时间，秒为单位
+     */
     @Value("${shiro.cookie.maxAge}")
     private int maxAge;
 
-    // 登录地址
+    /**
+     * 设置cipherKey密钥
+     */
+    @Value("${shiro.cookie.cipherKey}")
+    private String cipherKey;
+
+    /**
+     * 登录地址
+     */
     @Value("${shiro.user.loginUrl}")
     private String loginUrl;
 
-    // 权限认证失败地址
+    /**
+     * 权限认证失败地址
+     */
     @Value("${shiro.user.unauthorizedUrl}")
     private String unauthorizedUrl;
+
+    /**
+     * 是否开启记住我功能
+     */
+    @Value("${shiro.rememberMe.enabled: false}")
+    private boolean rememberMe;
 
     /**
      * 缓存管理器 使用Ehcache实现
@@ -145,6 +184,7 @@ public class ShiroConfig
     public UserRealm userRealm(EhCacheManager cacheManager)
     {
         UserRealm userRealm = new UserRealm();
+        userRealm.setAuthorizationCacheName(Constants.SYS_AUTH_CACHE);
         userRealm.setCacheManager(cacheManager);
         return userRealm;
     }
@@ -199,13 +239,13 @@ public class ShiroConfig
      * 安全管理器
      */
     @Bean
-    public SecurityManager securityManager(UserRealm userRealm, SpringSessionValidationScheduler springSessionValidationScheduler)
+    public SecurityManager securityManager(UserRealm userRealm)
     {
         DefaultWebSecurityManager securityManager = new DefaultWebSecurityManager();
         // 设置realm.
         securityManager.setRealm(userRealm);
         // 记住我
-        securityManager.setRememberMeManager(rememberMeManager());
+        securityManager.setRememberMeManager(rememberMe ? rememberMeManager() : null);
         // 注入缓存管理器;
         securityManager.setCacheManager(getEhCacheManager());
         // session管理器
@@ -219,7 +259,6 @@ public class ShiroConfig
     public LogoutFilter logoutFilter()
     {
         LogoutFilter logoutFilter = new LogoutFilter();
-        logoutFilter.setCacheManager(getEhCacheManager());
         logoutFilter.setLoginUrl(loginUrl);
         return logoutFilter;
     }
@@ -230,7 +269,7 @@ public class ShiroConfig
     @Bean
     public ShiroFilterFactoryBean shiroFilterFactoryBean(SecurityManager securityManager)
     {
-        ShiroFilterFactoryBean shiroFilterFactoryBean = new ShiroFilterFactoryBean();
+        CustomShiroFilterFactoryBean shiroFilterFactoryBean = new CustomShiroFilterFactoryBean();
         // Shiro的核心安全接口,这个属性是必须的
         shiroFilterFactoryBean.setSecurityManager(securityManager);
         // 身份认证失败，则跳转到登录页面的配置
@@ -242,6 +281,7 @@ public class ShiroConfig
         // 对静态资源设置匿名访问
         filterChainDefinitionMap.put("/favicon.ico**", "anon");
         filterChainDefinitionMap.put("/ruoyi.png**", "anon");
+        filterChainDefinitionMap.put("/html/**", "anon");
         filterChainDefinitionMap.put("/css/**", "anon");
         filterChainDefinitionMap.put("/docs/**", "anon");
         filterChainDefinitionMap.put("/fonts/**", "anon");
@@ -249,12 +289,19 @@ public class ShiroConfig
         filterChainDefinitionMap.put("/ajax/**", "anon");
         filterChainDefinitionMap.put("/js/**", "anon");
         filterChainDefinitionMap.put("/ruoyi/**", "anon");
-        filterChainDefinitionMap.put("/druid/**", "anon");
         filterChainDefinitionMap.put("/captcha/captchaImage**", "anon");
+        // 匿名访问不鉴权注解列表
+        List<String> permitAllUrl = SpringUtils.getBean(PermitAllUrlProperties.class).getUrls();
+        if (StringUtils.isNotEmpty(permitAllUrl))
+        {
+            permitAllUrl.forEach(url -> filterChainDefinitionMap.put(url, "anon"));
+        }
         // 退出 logout地址，shiro去清除session
         filterChainDefinitionMap.put("/logout", "logout");
         // 不需要拦截的访问
         filterChainDefinitionMap.put("/login", "anon,captchaValidate");
+        // 注册相关
+        filterChainDefinitionMap.put("/register", "anon,captchaValidate");
         // 系统权限列表
         // filterChainDefinitionMap.putAll(SpringUtils.getBean(IMenuService.class).selectPermsAll());
 
@@ -277,28 +324,27 @@ public class ShiroConfig
     /**
      * 自定义在线用户处理过滤器
      */
-    @Bean
     public OnlineSessionFilter onlineSessionFilter()
     {
         OnlineSessionFilter onlineSessionFilter = new OnlineSessionFilter();
         onlineSessionFilter.setLoginUrl(loginUrl);
+        onlineSessionFilter.setOnlineSessionDAO(sessionDAO());
         return onlineSessionFilter;
     }
 
     /**
      * 自定义在线用户同步过滤器
      */
-    @Bean
     public SyncOnlineSessionFilter syncOnlineSessionFilter()
     {
         SyncOnlineSessionFilter syncOnlineSessionFilter = new SyncOnlineSessionFilter();
+        syncOnlineSessionFilter.setOnlineSessionDAO(sessionDAO());
         return syncOnlineSessionFilter;
     }
 
     /**
      * 自定义验证码过滤器
      */
-    @Bean
     public CaptchaValidateFilter captchaValidateFilter()
     {
         CaptchaValidateFilter captchaValidateFilter = new CaptchaValidateFilter();
@@ -323,11 +369,18 @@ public class ShiroConfig
     /**
      * 记住我
      */
-    public CookieRememberMeManager rememberMeManager()
+    public CustomCookieRememberMeManager rememberMeManager()
     {
-        CookieRememberMeManager cookieRememberMeManager = new CookieRememberMeManager();
+        CustomCookieRememberMeManager cookieRememberMeManager = new CustomCookieRememberMeManager();
         cookieRememberMeManager.setCookie(rememberMeCookie());
-        cookieRememberMeManager.setCipherKey(Base64.decode("fCq+/xW488hMTCD+cmJ3aQ=="));
+        if (StringUtils.isNotEmpty(cipherKey))
+        {
+            cookieRememberMeManager.setCipherKey(Base64.decode(cipherKey));
+        }
+        else
+        {
+            cookieRememberMeManager.setCipherKey(CipherUtils.generateNewKey(128, "AES").getEncoded());
+        }
         return cookieRememberMeManager;
     }
 

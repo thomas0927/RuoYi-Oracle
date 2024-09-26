@@ -35,7 +35,7 @@
 	                <i class="fa fa-remove"></i> 删除
 	            </a>
             </div>
-			<div class="col-sm-12 select-table table-striped">
+			<div class="col-xs-12 select-table table-striped">
 				<table id="bootstrap-table1"></table>
 			</div>
 		</div>
@@ -73,7 +73,7 @@
 	                <i class="fa fa-remove"></i> 删除
 	            </a>
             </div>
-			<div class="col-sm-12 select-table table-striped">
+			<div class="col-xs-12 select-table table-striped">
 				<table id="bootstrap-table2"></table>
 			</div>
 		</div>
@@ -86,6 +86,7 @@
         $(function() {
             var options = {
             	id: "bootstrap-table1",
+            	formId: "form1",
             	toolbar: "toolbar1",
                 url: prefix + "/list",
                 createUrl: prefix + "/add",
@@ -145,6 +146,7 @@
         $(function() {
             var options = {
             	id: "bootstrap-table2",
+            	formId: "form2",
             	toolbar: "toolbar2",
                 url: prefix + "/list",
                 createUrl: prefix + "/add",

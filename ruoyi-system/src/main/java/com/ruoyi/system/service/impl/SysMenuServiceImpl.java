@@ -13,10 +13,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.domain.Ztree;
+import com.ruoyi.common.core.domain.entity.SysMenu;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.system.domain.SysMenu;
-import com.ruoyi.system.domain.SysRole;
-import com.ruoyi.system.domain.SysUser;
 import com.ruoyi.system.mapper.SysMenuMapper;
 import com.ruoyi.system.mapper.SysRoleMenuMapper;
 import com.ruoyi.system.service.ISysMenuService;
@@ -110,6 +110,27 @@ public class SysMenuServiceImpl implements ISysMenuService
     public Set<String> selectPermsByUserId(Long userId)
     {
         List<String> perms = menuMapper.selectPermsByUserId(userId);
+        Set<String> permsSet = new HashSet<>();
+        for (String perm : perms)
+        {
+            if (StringUtils.isNotEmpty(perm))
+            {
+                permsSet.addAll(Arrays.asList(perm.trim().split(",")));
+            }
+        }
+        return permsSet;
+    }
+
+    /**
+     * 根据角色ID查询权限
+     * 
+     * @param roleId 角色ID
+     * @return 权限列表
+     */
+    @Override
+    public Set<String> selectPermsByRoleId(Long roleId)
+    {
+        List<String> perms = menuMapper.selectPermsByRoleId(roleId);
         Set<String> permsSet = new HashSet<>();
         for (String perm : perms)
         {
@@ -307,15 +328,15 @@ public class SysMenuServiceImpl implements ISysMenuService
      * @return 结果
      */
     @Override
-    public String checkMenuNameUnique(SysMenu menu)
+    public boolean checkMenuNameUnique(SysMenu menu)
     {
         Long menuId = StringUtils.isNull(menu.getMenuId()) ? -1L : menu.getMenuId();
         SysMenu info = menuMapper.checkMenuNameUnique(menu.getMenuName(), menu.getParentId());
         if (StringUtils.isNotNull(info) && info.getMenuId().longValue() != menuId.longValue())
         {
-            return UserConstants.MENU_NAME_NOT_UNIQUE;
+            return UserConstants.NOT_UNIQUE;
         }
-        return UserConstants.MENU_NAME_UNIQUE;
+        return UserConstants.UNIQUE;
     }
 
     /**
@@ -356,13 +377,7 @@ public class SysMenuServiceImpl implements ISysMenuService
         {
             if (hasChild(list, tChild))
             {
-                // 判断是否有子节点
-                Iterator<SysMenu> it = childList.iterator();
-                while (it.hasNext())
-                {
-                    SysMenu n = (SysMenu) it.next();
-                    recursionFn(list, n);
-                }
+                recursionFn(list, tChild);
             }
         }
     }
@@ -390,6 +405,6 @@ public class SysMenuServiceImpl implements ISysMenuService
      */
     private boolean hasChild(List<SysMenu> list, SysMenu t)
     {
-        return getChildList(list, t).size() > 0 ? true : false;
+        return getChildList(list, t).size() > 0;
     }
 }

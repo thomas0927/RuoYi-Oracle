@@ -2,8 +2,8 @@ package com.ruoyi.system.service;
 
 import java.util.List;
 import com.ruoyi.common.core.domain.Ztree;
-import com.ruoyi.system.domain.SysDept;
-import com.ruoyi.system.domain.SysRole;
+import com.ruoyi.common.core.domain.entity.SysDept;
+import com.ruoyi.common.core.domain.entity.SysRole;
 
 /**
  * 部门管理 服务层
@@ -29,6 +29,14 @@ public interface ISysDeptService
     public List<Ztree> selectDeptTree(SysDept dept);
 
     /**
+     * 查询部门管理树（排除下级）
+     * 
+     * @param dept 部门信息
+     * @return 所有部门信息
+     */
+    public List<Ztree> selectDeptTreeExcludeChild(SysDept dept);
+
+    /**
      * 根据角色ID查询菜单
      *
      * @param role 角色对象
@@ -37,7 +45,7 @@ public interface ISysDeptService
     public List<Ztree> roleDeptTreeData(SysRole role);
 
     /**
-     * 查询部门人数
+     * 根据父部门ID查询下级部门数量
      * 
      * @param parentId 父部门ID
      * @return 结果
@@ -85,10 +93,25 @@ public interface ISysDeptService
     public SysDept selectDeptById(Long deptId);
 
     /**
+     * 根据ID查询所有子部门（正常状态）
+     * 
+     * @param deptId 部门ID
+     * @return 子部门数
+     */
+    public int selectNormalChildrenDeptById(Long deptId);
+
+    /**
      * 校验部门名称是否唯一
      * 
      * @param dept 部门信息
      * @return 结果
      */
-    public String checkDeptNameUnique(SysDept dept);
+    public boolean checkDeptNameUnique(SysDept dept);
+
+    /**
+     * 校验部门是否有数据权限
+     * 
+     * @param deptId 部门id
+     */
+    public void checkDeptDataScope(Long deptId);
 }

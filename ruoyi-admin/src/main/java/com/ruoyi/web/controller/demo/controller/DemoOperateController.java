@@ -18,9 +18,10 @@ import com.ruoyi.common.core.page.PageDomain;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.page.TableSupport;
 import com.ruoyi.common.core.text.Convert;
-import com.ruoyi.common.exception.BusinessException;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import com.ruoyi.web.controller.demo.domain.CustomerModel;
 import com.ruoyi.web.controller.demo.domain.UserOperateModel;
 
 /**
@@ -154,6 +155,17 @@ public class DemoOperateController extends BaseController
     }
 
     /**
+     * 新增保存主子表信息
+     */
+    @PostMapping("/customer/add")
+    @ResponseBody
+    public AjaxResult addSave(CustomerModel customerModel)
+    {
+        System.out.println(customerModel.toString());
+        return AjaxResult.success();
+    }
+
+    /**
      * 修改用户
      */
     @GetMapping("/edit/{userId}")
@@ -253,7 +265,7 @@ public class DemoOperateController extends BaseController
     {
         if (StringUtils.isNull(userList) || userList.size() == 0)
         {
-            throw new BusinessException("导入用户数据不能为空！");
+            throw new ServiceException("导入用户数据不能为空！");
         }
         int successNum = 0;
         int failureNum = 0;
@@ -303,7 +315,7 @@ public class DemoOperateController extends BaseController
         if (failureNum > 0)
         {
             failureMsg.insert(0, "很抱歉，导入失败！共 " + failureNum + " 条数据格式不正确，错误如下：");
-            throw new BusinessException(failureMsg.toString());
+            throw new ServiceException(failureMsg.toString());
         }
         else
         {

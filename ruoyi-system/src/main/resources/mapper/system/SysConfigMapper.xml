@@ -51,17 +51,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 				AND config_key like concat(concat('%',#{configKey}),'%')
 			</if>
 			<if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
-				and create_time &gt;= to_date(#{params.beginTime},'yyyy-MM-dd HH24:mi:ss')
+				AND to_char(create_time, 'yyyy-mm-dd') &gt;= #{params.beginTime}
 			</if>
 			<if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
-				and create_time &lt;= to_date(#{params.endTime},'yyyy-MM-dd HH24:mi:ss')
+				AND to_char(create_time, 'yyyy-mm-dd') &lt;= #{params.endTime}
 			</if>
 		</where>
     </select>
     
+    <select id="selectConfigById" parameterType="Long" resultMap="SysConfigResult">
+        <include refid="selectConfigVo"/>
+        where config_id = #{configId}
+    </select>
+    
     <select id="checkConfigKeyUnique" parameterType="String" resultMap="SysConfigResult">
         <include refid="selectConfigVo"/>
-        where config_key = #{configKey}
+        where config_key = #{configKey} and rownum <![CDATA[ <= ]]> 1
     </select>
     
     <insert id="insertConfig" parameterType="SysConfig">
@@ -102,6 +107,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </set>
         where config_id = #{configId}
     </update>
+
+    <delete id="deleteConfigById" parameterType="Long">
+        delete from sys_config where config_id = #{configId}
+    </delete>
 	
     <delete id="deleteConfigByIds" parameterType="String">
         delete from sys_config where config_id in 

@@ -35,6 +35,13 @@ public interface GenTableMapper
     public List<GenTable> selectDbTableListByNames(String[] tableNames);
 
     /**
+     * 查询所有表信息
+     * 
+     * @return 表信息集合
+     */
+    public List<GenTable> selectGenTableAll();
+
+    /**
      * 查询表ID业务信息
      * 
      * @param id 业务ID
@@ -50,9 +57,9 @@ public interface GenTableMapper
      */
     public GenTable selectGenTableByName(String tableName);
 
-
     /**
      * 获取菜单id
+     * 
      * @return seq_sys_menu.nextval
      */
     public long selectMenuId();
@@ -80,4 +87,12 @@ public interface GenTableMapper
      * @return 结果
      */
     public int deleteGenTableByIds(Long[] ids);
+
+    /**
+     * 创建表
+     *
+     * @param sql
+     * @return 结果
+     */
+    public int createTable(String sql);
 }

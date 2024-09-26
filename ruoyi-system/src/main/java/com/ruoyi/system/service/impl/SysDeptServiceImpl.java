@@ -2,16 +2,21 @@ package com.ruoyi.system.service.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.lang3.ArrayUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.domain.Ztree;
-import com.ruoyi.common.exception.BusinessException;
+import com.ruoyi.common.core.domain.entity.SysDept;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.core.domain.entity.SysUser;
+import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.system.domain.SysDept;
-import com.ruoyi.system.domain.SysRole;
+import com.ruoyi.common.utils.spring.SpringUtils;
 import com.ruoyi.system.mapper.SysDeptMapper;
 import com.ruoyi.system.service.ISysDeptService;
 
@@ -55,6 +60,26 @@ public class SysDeptServiceImpl implements ISysDeptService
     }
 
     /**
+     * 查询部门管理树（排除下级）
+     * 
+     * @param deptId 部门ID
+     * @return 所有部门信息
+     */
+    @Override
+    @DataScope(deptAlias = "d")
+    public List<Ztree> selectDeptTreeExcludeChild(SysDept dept)
+    {
+        Long excludeId = dept.getExcludeId();
+        List<SysDept> depts = deptMapper.selectDeptList(dept);
+        if (excludeId.intValue() > 0)
+        {
+            depts.removeIf(d -> d.getDeptId().intValue() == excludeId || ArrayUtils.contains(StringUtils.split(d.getAncestors(), ","), excludeId + ""));
+        }
+        List<Ztree> ztrees = initZtree(depts);
+        return ztrees;
+    }
+
+    /**
      * 根据角色ID查询部门（数据权限）
      *
      * @param role 角色对象
@@ -65,7 +90,7 @@ public class SysDeptServiceImpl implements ISysDeptService
     {
         Long roleId = role.getRoleId();
         List<Ztree> ztrees = new ArrayList<Ztree>();
-        List<SysDept> deptList = selectDeptList(new SysDept());
+        List<SysDept> deptList = SpringUtils.getAopProxy(this).selectDeptList(new SysDept());
         if (StringUtils.isNotNull(roleId))
         {
             List<String> roleDeptList = deptMapper.selectRoleDeptTree(roleId);
@@ -121,7 +146,7 @@ public class SysDeptServiceImpl implements ISysDeptService
     }
 
     /**
-     * 查询部门人数
+     * 根据父部门ID查询下级部门数量
      * 
      * @param parentId 部门ID
      * @return 结果
@@ -144,7 +169,7 @@ public class SysDeptServiceImpl implements ISysDeptService
     public boolean checkDeptExistUser(Long deptId)
     {
         int result = deptMapper.checkDeptExistUser(deptId);
-        return result > 0 ? true : false;
+        return result > 0;
     }
 
     /**
@@ -172,7 +197,7 @@ public class SysDeptServiceImpl implements ISysDeptService
         // 如果父节点不为"正常"状态,则不允许新增子节点
         if (!UserConstants.DEPT_NORMAL.equals(info.getStatus()))
         {
-            throw new BusinessException("部门停用，不允许新增");
+            throw new ServiceException("部门停用，不允许新增");
         }
         dept.setAncestors(info.getAncestors() + "," + dept.getParentId());
         return deptMapper.insertDept(dept);
@@ -198,10 +223,11 @@ public class SysDeptServiceImpl implements ISysDeptService
             updateDeptChildren(dept.getDeptId(), newAncestors, oldAncestors);
         }
         int result = deptMapper.updateDept(dept);
-        if (UserConstants.DEPT_NORMAL.equals(dept.getStatus()))
+        if (UserConstants.DEPT_NORMAL.equals(dept.getStatus()) && StringUtils.isNotEmpty(dept.getAncestors())
+                && !StringUtils.equals("0", dept.getAncestors()))
         {
             // 如果该部门是启用状态，则启用该部门的所有上级部门
-            updateParentDeptStatus(dept);
+            updateParentDeptStatusNormal(dept);
         }
         return result;
     }
@@ -211,12 +237,11 @@ public class SysDeptServiceImpl implements ISysDeptService
      * 
      * @param dept 当前部门
      */
-    private void updateParentDeptStatus(SysDept dept)
+    private void updateParentDeptStatusNormal(SysDept dept)
     {
-        String updateBy = dept.getUpdateBy();
-        dept = deptMapper.selectDeptById(dept.getDeptId());
-        dept.setUpdateBy(updateBy);
-        deptMapper.updateDeptStatus(dept);
+        String ancestors = dept.getAncestors();
+        Long[] deptIds = Convert.toLongArray(ancestors);
+        deptMapper.updateDeptStatusNormal(deptIds);
     }
 
     /**
@@ -231,7 +256,7 @@ public class SysDeptServiceImpl implements ISysDeptService
         List<SysDept> children = deptMapper.selectChildrenDeptById(deptId);
         for (SysDept child : children)
         {
-            child.setAncestors(child.getAncestors().replace(oldAncestors, newAncestors));
+            child.setAncestors(child.getAncestors().replaceFirst(oldAncestors, newAncestors));
         }
         if (children.size() > 0)
         {
@@ -252,20 +277,52 @@ public class SysDeptServiceImpl implements ISysDeptService
     }
 
     /**
+     * 根据ID查询所有子部门（正常状态）
+     * 
+     * @param deptId 部门ID
+     * @return 子部门数
+     */
+    @Override
+    public int selectNormalChildrenDeptById(Long deptId)
+    {
+        return deptMapper.selectNormalChildrenDeptById(deptId);
+    }
+
+    /**
      * 校验部门名称是否唯一
      * 
      * @param dept 部门信息
      * @return 结果
      */
     @Override
-    public String checkDeptNameUnique(SysDept dept)
+    public boolean checkDeptNameUnique(SysDept dept)
     {
         Long deptId = StringUtils.isNull(dept.getDeptId()) ? -1L : dept.getDeptId();
         SysDept info = deptMapper.checkDeptNameUnique(dept.getDeptName(), dept.getParentId());
         if (StringUtils.isNotNull(info) && info.getDeptId().longValue() != deptId.longValue())
         {
-            return UserConstants.DEPT_NAME_NOT_UNIQUE;
+            return UserConstants.NOT_UNIQUE;
         }
-        return UserConstants.DEPT_NAME_UNIQUE;
+        return UserConstants.UNIQUE;
+    }
+
+    /**
+     * 校验部门是否有数据权限
+     * 
+     * @param deptId 部门id
+     */
+    @Override
+    public void checkDeptDataScope(Long deptId)
+    {
+        if (!SysUser.isAdmin(ShiroUtils.getUserId()) && StringUtils.isNotNull(deptId))
+        {
+            SysDept dept = new SysDept();
+            dept.setDeptId(deptId);
+            List<SysDept> depts = SpringUtils.getAopProxy(this).selectDeptList(dept);
+            if (StringUtils.isEmpty(depts))
+            {
+                throw new ServiceException("没有权限访问部门数据！");
+            }
+        }
     }
 }

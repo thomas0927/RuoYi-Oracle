@@ -24,6 +24,7 @@
 		        showRefresh: false,
 		        showToggle: false,
 		        showColumns: false,
+		        footerStyle: footerStyle,
                 columns: [{
 		            checkbox: true
 		        },
@@ -70,14 +71,25 @@
 		            align: 'center',
 		            formatter: function(value, row, index) {
 		            	var actions = [];
-		            	actions.push('<a class="btn btn-success btn-xs" href="#"><i class="fa fa-edit"></i>编辑</a> ');
-                        actions.push('<a class="btn btn-danger btn-xs" href="#"><i class="fa fa-remove"></i>删除</a>');
+		            	actions.push('<a class="btn btn-success btn-xs" href="javascript:;"><i class="fa fa-edit"></i>编辑</a> ');
+                        actions.push('<a class="btn btn-danger btn-xs" href="javascript:;"><i class="fa fa-remove"></i>删除</a>');
 						return actions.join('');
 		            }
 		        }]
             };
             $.table.init(options);
         });
+        
+        function footerStyle(column) {
+        	return {
+//         	    userBalance: {
+//         	        classes: 'class'
+//         	    },
+        	    userBalance: {
+        	        css: { color: 'red', 'font-weight': 'normal' }
+        	    }
+        	}[column.field]
+          }
     </script>
 </body>
 </html>

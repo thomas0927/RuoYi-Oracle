@@ -7,6 +7,9 @@
      <div class="container-div">
 		<div class="row">
 			<div class="col-sm-12 select-table table-striped">
+			    <!-- 点击事件的方式打开使用 detailViewIcon: false and detailViewByClick: true
+			         data-detail-view-icon="false" 
+			         data-detail-view-by-click="true" -->
 				<table id="bootstrap-table"></table>
 			</div>
 		</div>
@@ -67,8 +70,8 @@
 		            align: 'center',
 		            formatter: function(value, row, index) {
 		            	var actions = [];
-		            	actions.push('<a class="btn btn-success btn-xs" href="#"><i class="fa fa-edit"></i>编辑</a> ');
-                        actions.push('<a class="btn btn-danger btn-xs" href="#"><i class="fa fa-remove"></i>删除</a>');
+		            	actions.push('<a class="btn btn-success btn-xs" href="javascript:;"><i class="fa fa-edit"></i>编辑</a> ');
+                        actions.push('<a class="btn btn-danger btn-xs" href="javascript:;"><i class="fa fa-remove"></i>删除</a>');
 						return actions.join('');
 		            }
 		        }]
@@ -77,12 +80,12 @@
         });
         
 		initChildTable = function(index, row, $detail) {
-			var cur_table = $detail.html('<table style="table-layout:fixed"></table>').find('table');
-    	    $(cur_table).bootstrapTable({
+			var childTable = $detail.html('<table style="table-layout:fixed"></table>').find('table');
+    	    $(childTable).bootstrapTable({
     	        url: prefix + "/list",
     	        method: 'post',
     	        sidePagination: "server",
-    	        contentType: "application/x-www-form-urlencoded",   // 编码类型
+    	        contentType: "application/x-www-form-urlencoded",
     	        queryParams : {
                     userName: '测试8'
 				},

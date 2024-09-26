@@ -1,7 +1,7 @@
 package com.ruoyi.system.service;
 
 import java.util.List;
-import com.ruoyi.system.domain.SysDictData;
+import com.ruoyi.common.core.domain.entity.SysDictData;
 
 /**
  * 字典 业务层
@@ -17,14 +17,6 @@ public interface ISysDictDataService
      * @return 字典数据集合信息
      */
     public List<SysDictData> selectDictDataList(SysDictData dictData);
-
-    /**
-     * 根据字典类型查询字典数据
-     * 
-     * @param dictType 字典类型
-     * @return 字典数据集合信息
-     */
-    public List<SysDictData> selectDictDataByType(String dictType);
 
     /**
      * 根据字典类型和字典键值查询字典数据信息
@@ -44,20 +36,11 @@ public interface ISysDictDataService
     public SysDictData selectDictDataById(Long dictCode);
 
     /**
-     * 通过字典ID删除字典数据信息
-     * 
-     * @param dictCode 字典数据ID
-     * @return 结果
-     */
-    public int deleteDictDataById(Long dictCode);
-
-    /**
      * 批量删除字典数据
      * 
      * @param ids 需要删除的数据
-     * @return 结果
      */
-    public int deleteDictDataByIds(String ids);
+    public void deleteDictDataByIds(String ids);
 
     /**
      * 新增保存字典数据信息

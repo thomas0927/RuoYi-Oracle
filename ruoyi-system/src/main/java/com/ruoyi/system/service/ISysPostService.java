@@ -46,9 +46,8 @@ public interface ISysPostService
      * 
      * @param ids 需要删除的数据ID
      * @return 结果
-     * @throws Exception 异常
      */
-    public int deletePostByIds(String ids) throws Exception;
+    public int deletePostByIds(String ids);
 
     /**
      * 新增保存岗位信息
@@ -80,7 +79,7 @@ public interface ISysPostService
      * @param post 岗位信息
      * @return 结果
      */
-    public String checkPostNameUnique(SysPost post);
+    public boolean checkPostNameUnique(SysPost post);
 
     /**
      * 校验岗位编码
@@ -88,5 +87,5 @@ public interface ISysPostService
      * @param post 岗位信息
      * @return 结果
      */
-    public String checkPostCodeUnique(SysPost post);
+    public boolean checkPostCodeUnique(SysPost post);
 }

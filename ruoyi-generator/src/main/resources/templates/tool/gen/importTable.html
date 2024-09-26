@@ -37,14 +37,15 @@
 		$(function() {
 		    var options = {
 		        url: prefix + "/db/list",
-		        sortName: "createTime",
-		        sortOrder: "desc",
 		        showSearch: false,
 		        showRefresh: false,
 		        showToggle: false,
 		        showColumns: false,
 		        clickToSelect: true,
+		        rememberSelected: true,
+		        uniqueId: "tableName",
 		        columns: [{
+		        	field: 'state',
 		            checkbox: true
 		        },
 		        {
@@ -56,26 +57,24 @@
 		        {
 		            field: 'tableName',
 		            title: '表名称',
-		            width: '20%',
-		            sortable: true
+		            formatter: function(value, row, index) {
+                    	return $.table.tooltip(value);
+                    }
 		        },
 		        {
 		            field: 'tableComment',
 		            title: '表描述',
-		            width: '20%',
-		            sortable: true
+		            formatter: function(value, row, index) {
+                    	return $.table.tooltip(value);
+                    }
 		        },
 		        {
 		            field: 'createTime',
-		            title: '创建时间',
-		            width: '20%',
-		            sortable: true
+		            title: '创建时间'
 		        },
 		        {
 		            field: 'updateTime',
-		            title: '更新时间',
-		            width: '20%',
-		            sortable: true
+		            title: '更新时间'
 		        }]
 		    };
 		    $.table.init(options);

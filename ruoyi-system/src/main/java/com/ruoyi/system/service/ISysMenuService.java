@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import com.ruoyi.common.core.domain.Ztree;
-import com.ruoyi.system.domain.SysMenu;
-import com.ruoyi.system.domain.SysRole;
-import com.ruoyi.system.domain.SysUser;
+import com.ruoyi.common.core.domain.entity.SysMenu;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.core.domain.entity.SysUser;
 
 /**
  * 菜单 业务层
@@ -47,6 +47,14 @@ public interface ISysMenuService
      * @return 权限列表
      */
     public Set<String> selectPermsByUserId(Long userId);
+
+    /**
+     * 根据角色ID查询权限
+     * 
+     * @param roleId 角色ID
+     * @return 权限列表
+     */
+    public Set<String> selectPermsByRoleId(Long roleId);
 
     /**
      * 根据角色ID查询菜单
@@ -127,5 +135,5 @@ public interface ISysMenuService
      * @param menu 菜单信息
      * @return 结果
      */
-    public String checkMenuNameUnique(SysMenu menu);
+    public boolean checkMenuNameUnique(SysMenu menu);
 }

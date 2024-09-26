@@ -10,11 +10,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.common.constant.UserConstants;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.text.Convert;
-import com.ruoyi.common.exception.BusinessException;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.spring.SpringUtils;
-import com.ruoyi.system.domain.SysRole;
 import com.ruoyi.system.domain.SysRoleDept;
 import com.ruoyi.system.domain.SysRoleMenu;
 import com.ruoyi.system.domain.SysUserRole;
@@ -133,8 +135,13 @@ public class SysRoleServiceImpl implements ISysRoleService
      * @return 结果
      */
     @Override
+    @Transactional
     public boolean deleteRoleById(Long roleId)
     {
+        // 删除角色与菜单关联
+        roleMenuMapper.deleteRoleMenuByRoleId(roleId);
+        // 删除角色与部门关联
+        roleDeptMapper.deleteRoleDeptByRoleId(roleId);
         return roleMapper.deleteRoleById(roleId) > 0 ? true : false;
     }
 
@@ -145,18 +152,24 @@ public class SysRoleServiceImpl implements ISysRoleService
      * @throws Exception
      */
     @Override
-    public int deleteRoleByIds(String ids) throws BusinessException
+    @Transactional
+    public int deleteRoleByIds(String ids)
     {
         Long[] roleIds = Convert.toLongArray(ids);
         for (Long roleId : roleIds)
         {
             checkRoleAllowed(new SysRole(roleId));
+            checkRoleDataScope(roleId);
             SysRole role = selectRoleById(roleId);
             if (countUserRoleByRoleId(roleId) > 0)
             {
-                throw new BusinessException(String.format("%1$s已分配,不能删除", role.getRoleName()));
+                throw new ServiceException(String.format("%1$s已分配,不能删除", role.getRoleName()));
             }
         }
+        // 删除角色与菜单关联
+        roleMenuMapper.deleteRoleMenu(roleIds);
+        // 删除角色与部门关联
+        roleDeptMapper.deleteRoleDept(roleIds);
         return roleMapper.deleteRoleByIds(roleIds);
     }
 
@@ -265,15 +278,15 @@ public class SysRoleServiceImpl implements ISysRoleService
      * @return 结果
      */
     @Override
-    public String checkRoleNameUnique(SysRole role)
+    public boolean checkRoleNameUnique(SysRole role)
     {
         Long roleId = StringUtils.isNull(role.getRoleId()) ? -1L : role.getRoleId();
         SysRole info = roleMapper.checkRoleNameUnique(role.getRoleName());
         if (StringUtils.isNotNull(info) && info.getRoleId().longValue() != roleId.longValue())
         {
-            return UserConstants.ROLE_NAME_NOT_UNIQUE;
+            return UserConstants.NOT_UNIQUE;
         }
-        return UserConstants.ROLE_NAME_UNIQUE;
+        return UserConstants.UNIQUE;
     }
 
     /**
@@ -283,15 +296,15 @@ public class SysRoleServiceImpl implements ISysRoleService
      * @return 结果
      */
     @Override
-    public String checkRoleKeyUnique(SysRole role)
+    public boolean checkRoleKeyUnique(SysRole role)
     {
         Long roleId = StringUtils.isNull(role.getRoleId()) ? -1L : role.getRoleId();
         SysRole info = roleMapper.checkRoleKeyUnique(role.getRoleKey());
         if (StringUtils.isNotNull(info) && info.getRoleId().longValue() != roleId.longValue())
         {
-            return UserConstants.ROLE_KEY_NOT_UNIQUE;
+            return UserConstants.NOT_UNIQUE;
         }
-        return UserConstants.ROLE_KEY_UNIQUE;
+        return UserConstants.UNIQUE;
     }
 
     /**
@@ -299,11 +312,35 @@ public class SysRoleServiceImpl implements ISysRoleService
      * 
      * @param role 角色信息
      */
+    @Override
     public void checkRoleAllowed(SysRole role)
     {
         if (StringUtils.isNotNull(role.getRoleId()) && role.isAdmin())
         {
-            throw new BusinessException("不允许操作超级管理员角色");
+            throw new ServiceException("不允许操作超级管理员角色");
+        }
+    }
+
+    /**
+     * 校验角色是否有数据权限
+     * 
+     * @param roleIds 角色id
+     */
+    @Override
+    public void checkRoleDataScope(Long... roleIds)
+    {
+        if (!SysUser.isAdmin(ShiroUtils.getUserId()))
+        {
+            for (Long roleId : roleIds)
+            {
+                SysRole role = new SysRole();
+                role.setRoleId(roleId);
+                List<SysRole> roles = SpringUtils.getAopProxy(this).selectRoleList(role);
+                if (StringUtils.isEmpty(roles))
+                {
+                    throw new ServiceException("没有权限访问角色数据！");
+                }
+            }
         }
     }
 
@@ -350,6 +387,7 @@ public class SysRoleServiceImpl implements ISysRoleService
      * @param userIds 需要删除的用户数据ID
      * @return 结果
      */
+    @Override
     public int deleteAuthUsers(Long roleId, String userIds)
     {
         return userRoleMapper.deleteUserRoleInfos(roleId, Convert.toLongArray(userIds));
@@ -359,9 +397,10 @@ public class SysRoleServiceImpl implements ISysRoleService
      * 批量选择授权用户角色
      * 
      * @param roleId 角色ID
-     * @param userIds 需要删除的用户数据ID
+     * @param userIds 需要授权的用户数据ID
      * @return 结果
      */
+    @Override
     public int insertAuthUsers(Long roleId, String userIds)
     {
         Long[] users = Convert.toLongArray(userIds);

@@ -10,10 +10,10 @@
 		<div class="box box-main">
 			<div class="box-header">
 				<div class="box-title">
-					<i class="fa icon-grid"></i> 组织机构
+					<i class="fa fa-sitemap"></i> 组织机构
 				</div>
 				<div class="box-tools pull-right">
-				    <a type="button" class="btn btn-box-tool" href="#" onclick="dept()" title="管理部门"><i class="fa fa-edit"></i></a>
+				    <a type="button" class="btn btn-box-tool" href="javascript:void(0)" onclick="dept()" title="管理部门"><i class="fa fa-edit"></i></a>
 					<button type="button" class="btn btn-box-tool" id="btnExpand" title="展开" style="display:none;"><i class="fa fa-chevron-up"></i></button>
 					<button type="button" class="btn btn-box-tool" id="btnCollapse" title="折叠"><i class="fa fa-chevron-down"></i></button>
 					<button type="button" class="btn btn-box-tool" id="btnRefresh" title="刷新部门"><i class="fa fa-refresh"></i></button>
@@ -54,7 +54,7 @@
 								</li>
 								<li>
 									<a class="btn btn-primary btn-rounded btn-sm" onclick="$.table.search()"><i class="fa fa-search"></i>&nbsp;搜索</a>
-								    <a class="btn btn-warning btn-rounded btn-sm" onclick="$.form.reset()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
+								    <a class="btn btn-warning btn-rounded btn-sm" onclick="resetPre()"><i class="fa fa-refresh"></i>&nbsp;重置</a>
 								</li>
 							</ul>
 						</div>
@@ -100,7 +100,15 @@
 		    if ($(this).width() < 769) {
 		        panehHidden = true;
 		    }
-		    $('body').layout({ initClosed: panehHidden, west__size: 185 });
+		    $('body').layout({ initClosed: panehHidden, west__size: 185, resizeWithWindow: false });
+	     	// 回到顶部绑定
+	    	if ($.fn.toTop !== undefined) {
+	    		var opt = {
+	    			win:$('.ui-layout-center'),
+	    			doc:$('.ui-layout-center')
+	    		};
+	    		$('#scroll-up').toTop(opt);
+	    	}
 		    queryUserList();
 		    queryDeptTree();
 		});
@@ -108,6 +116,7 @@
 		function queryUserList() {
 		    var options = {
 		        url: prefix + "/list",
+		        viewUrl: prefix + "/view/{id}",
 		        createUrl: prefix + "/add",
 		        updateUrl: prefix + "/edit/{id}",
 		        removeUrl: prefix + "/remove",
@@ -127,7 +136,10 @@
 		        {
 		            field: 'loginName',
 		            title: '登录名称',
-		            sortable: true
+		            sortable: true,
+		            formatter: function (value, row, index) {
+		                return '<a href="javascript:void(0)" onclick="$.operate.view(\'' + row.userId + '\')">' + value + '</a>';
+		            }
 		        },
 		        {
 		            field: 'userName',
@@ -163,11 +175,18 @@
 		            title: '操作',
 		            align: 'center',
 		            formatter: function(value, row, index) {
-		                var actions = [];
-		                actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.editTab(\'' + row.userId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
-		                actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.userId + '\')"><i class="fa fa-remove"></i>删除</a> ');
-		                actions.push('<a class="btn btn-info btn-xs ' + resetPwdFlag + '" href="javascript:void(0)" onclick="resetPwd(\'' + row.userId + '\')"><i class="fa fa-key"></i>重置</a>');
-		                return actions.join('');
+		                if (row.userId != 1) {
+		                	var actions = [];
+			                actions.push('<a class="btn btn-success btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.editTab(\'' + row.userId + '\')"><i class="fa fa-edit"></i>编辑</a> ');
+			                actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="$.operate.remove(\'' + row.userId + '\')"><i class="fa fa-remove"></i>删除</a> ');
+			                var more = [];
+			                more.push("<a class='btn btn-default btn-xs " + resetPwdFlag + "' href='javascript:void(0)' onclick='resetPwd(" + row.userId + ")'><i class='fa fa-key'></i>重置密码</a> ");
+			                more.push("<a class='btn btn-default btn-xs " + editFlag + "' href='javascript:void(0)' onclick='authRole(" + row.userId + ")'><i class='fa fa-check-square-o'></i>分配角色</a>");
+			                actions.push('<a tabindex="0" class="btn btn-info btn-xs" role="button" data-container="body" data-placement="left" data-toggle="popover" data-html="true" data-trigger="hover" data-content="' + more.join('') + '"><i class="fa fa-chevron-circle-right"></i>更多操作</a>');
+			                return actions.join('');
+		            	} else {
+		                    return "";
+		                }
 		            }
 		        }]
 		    };
@@ -176,7 +195,7 @@
 		
 		function queryDeptTree()
 		{
-			var url = ctx + "system/dept/treeData";
+			var url = ctx + "system/user/deptTreeData";
 			var options = {
 		        url: url,
 		        expandLevel: 2,
@@ -206,6 +225,16 @@
 		$('#btnRefresh').click(function() {
 			queryDeptTree();
 		});
+		
+		/* 自定义重置-表单重置/隐藏框/树节点选择色/搜索 */
+		function resetPre() {
+			resetDate();
+			$("#user-form")[0].reset();
+			$("#deptId").val("");
+			$("#parentId").val("");
+			$(".curSelectedNode").removeClass("curSelectedNode");
+			$.table.search();
+		}
 
 		/* 用户管理-部门 */
 		function dept() {
@@ -217,6 +246,12 @@
 		function resetPwd(userId) {
 		    var url = prefix + '/resetPwd/' + userId;
 		    $.modal.open("重置密码", url, '800', '300');
+		}
+		
+		/* 用户管理-分配角色 */
+		function authRole(userId) {
+		    var url = prefix + '/authRole/' + userId;
+		    $.modal.openTab("用户分配角色", url);
 		}
 		
 		/* 用户状态显示 */

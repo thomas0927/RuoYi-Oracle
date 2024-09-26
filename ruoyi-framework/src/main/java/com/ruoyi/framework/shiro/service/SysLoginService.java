@@ -1,24 +1,31 @@
 package com.ruoyi.framework.shiro.service;
 
+import java.util.List;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import com.ruoyi.common.constant.Constants;
 import com.ruoyi.common.constant.ShiroConstants;
 import com.ruoyi.common.constant.UserConstants;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.enums.UserStatus;
+import com.ruoyi.common.exception.user.BlackListException;
 import com.ruoyi.common.exception.user.CaptchaException;
 import com.ruoyi.common.exception.user.UserBlockedException;
 import com.ruoyi.common.exception.user.UserDeleteException;
 import com.ruoyi.common.exception.user.UserNotExistsException;
 import com.ruoyi.common.exception.user.UserPasswordNotMatchException;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.IpUtils;
 import com.ruoyi.common.utils.MessageUtils;
 import com.ruoyi.common.utils.ServletUtils;
+import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.manager.AsyncManager;
 import com.ruoyi.framework.manager.factory.AsyncFactory;
-import com.ruoyi.framework.util.ShiroUtils;
-import com.ruoyi.system.domain.SysUser;
+import com.ruoyi.system.service.ISysConfigService;
+import com.ruoyi.system.service.ISysMenuService;
 import com.ruoyi.system.service.ISysUserService;
 
 /**
@@ -35,13 +42,19 @@ public class SysLoginService
     @Autowired
     private ISysUserService userService;
 
+    @Autowired
+    private ISysMenuService menuService;
+
+    @Autowired
+    private ISysConfigService configService;
+
     /**
      * 登录
      */
     public SysUser login(String username, String password)
     {
         // 验证码校验
-        if (!StringUtils.isEmpty(ServletUtils.getRequest().getAttribute(ShiroConstants.CURRENT_CAPTCHA)))
+        if (ShiroConstants.CAPTCHA_ERROR.equals(ServletUtils.getRequest().getAttribute(ShiroConstants.CURRENT_CAPTCHA)))
         {
             AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, MessageUtils.message("user.jcaptcha.error")));
             throw new CaptchaException();
@@ -68,9 +81,18 @@ public class SysLoginService
             throw new UserPasswordNotMatchException();
         }
 
+        // IP黑名单校验
+        String blackStr = configService.selectConfigByKey("sys.login.blackIPList");
+        if (IpUtils.isMatchedIp(blackStr, ShiroUtils.getIp()))
+        {
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, MessageUtils.message("login.blocked")));
+            throw new BlackListException();
+        }
+
         // 查询用户信息
         SysUser user = userService.selectUserByLoginName(username);
 
+        /**
         if (user == null && maybeMobilePhoneNumber(username))
         {
             user = userService.selectUserByPhoneNumber(username);
@@ -80,6 +102,7 @@ public class SysLoginService
         {
             user = userService.selectUserByEmail(username);
         }
+        */
 
         if (user == null)
         {
@@ -95,17 +118,19 @@ public class SysLoginService
         
         if (UserStatus.DISABLE.getCode().equals(user.getStatus()))
         {
-            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, MessageUtils.message("user.blocked", user.getRemark())));
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, MessageUtils.message("user.blocked")));
             throw new UserBlockedException();
         }
 
         passwordService.validate(user, password);
 
         AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
-        recordLoginInfo(user);
+        setRolePermission(user);
+        recordLoginInfo(user.getUserId());
         return user;
     }
 
+    /**
     private boolean maybeEmail(String username)
     {
         if (!username.matches(UserConstants.EMAIL_PATTERN))
@@ -123,12 +148,39 @@ public class SysLoginService
         }
         return true;
     }
+    */
+
+    /**
+     * 设置角色权限
+     *
+     * @param user 用户信息
+     */
+    public void setRolePermission(SysUser user)
+    {
+        List<SysRole> roles = user.getRoles();
+        if (!roles.isEmpty())
+        {
+            // 设置permissions属性，以便数据权限匹配权限
+            for (SysRole role : roles)
+            {
+                if (StringUtils.equals(role.getStatus(), UserConstants.ROLE_NORMAL))
+                {
+                    Set<String> rolePerms = menuService.selectPermsByRoleId(role.getRoleId());
+                    role.setPermissions(rolePerms);
+                }
+            }
+        }
+    }
 
     /**
      * 记录登录信息
+     *
+     * @param userId 用户ID
      */
-    public void recordLoginInfo(SysUser user)
+    public void recordLoginInfo(Long userId)
     {
+        SysUser user = new SysUser();
+        user.setUserId(userId);
         user.setLoginIp(ShiroUtils.getIp());
         user.setLoginDate(DateUtils.getNowDate());
         userService.updateUserInfo(user);

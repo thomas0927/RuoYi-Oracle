@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.text.Convert;
-import com.ruoyi.common.exception.BusinessException;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.domain.SysPost;
 import com.ruoyi.system.mapper.SysPostMapper;
@@ -90,10 +90,10 @@ public class SysPostServiceImpl implements ISysPostService
      * 批量删除岗位信息
      * 
      * @param ids 需要删除的数据ID
-     * @throws Exception
+     * @return 结果
      */
     @Override
-    public int deletePostByIds(String ids) throws BusinessException
+    public int deletePostByIds(String ids)
     {
         Long[] postIds = Convert.toLongArray(ids);
         for (Long postId : postIds)
@@ -101,7 +101,7 @@ public class SysPostServiceImpl implements ISysPostService
             SysPost post = selectPostById(postId);
             if (countUserPostById(postId) > 0)
             {
-                throw new BusinessException(String.format("%1$s已分配,不能删除", post.getPostName()));
+                throw new ServiceException(String.format("%1$s已分配,不能删除", post.getPostName()));
             }
         }
         return postMapper.deletePostByIds(postIds);
@@ -150,15 +150,15 @@ public class SysPostServiceImpl implements ISysPostService
      * @return 结果
      */
     @Override
-    public String checkPostNameUnique(SysPost post)
+    public boolean checkPostNameUnique(SysPost post)
     {
         Long postId = StringUtils.isNull(post.getPostId()) ? -1L : post.getPostId();
         SysPost info = postMapper.checkPostNameUnique(post.getPostName());
         if (StringUtils.isNotNull(info) && info.getPostId().longValue() != postId.longValue())
         {
-            return UserConstants.POST_NAME_NOT_UNIQUE;
+            return UserConstants.NOT_UNIQUE;
         }
-        return UserConstants.POST_NAME_UNIQUE;
+        return UserConstants.UNIQUE;
     }
 
     /**
@@ -168,14 +168,14 @@ public class SysPostServiceImpl implements ISysPostService
      * @return 结果
      */
     @Override
-    public String checkPostCodeUnique(SysPost post)
+    public boolean checkPostCodeUnique(SysPost post)
     {
         Long postId = StringUtils.isNull(post.getPostId()) ? -1L : post.getPostId();
         SysPost info = postMapper.checkPostCodeUnique(post.getPostCode());
         if (StringUtils.isNotNull(info) && info.getPostId().longValue() != postId.longValue())
         {
-            return UserConstants.POST_CODE_NOT_UNIQUE;
+            return UserConstants.NOT_UNIQUE;
         }
-        return UserConstants.POST_CODE_UNIQUE;
+        return UserConstants.UNIQUE;
     }
 }
